@@ -1,4 +1,4 @@
-/* Sleek Music Player with Crossfade + Seek + Safari unlock
+/* Sleek Music Player with Crossfade + Seek + Safari unlock + Shuffle + Markers
    Expects:
    - images/image1.jpg, image2.jpg, image3.jpg
    - music/song1.mp3, song2.mp3, song3.mp3
@@ -17,18 +17,21 @@ let isPlaying = false;
 let rafId = null;
 let seeking = false;
 let audioUnlocked = false;
+let shuffleOn = false;
 
 const audioA = document.getElementById("audioA");
 const audioB = document.getElementById("audioB");
 const playPauseBtn = document.getElementById("playPauseBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
+const shuffleBtn = document.getElementById("shuffleBtn");
 const seek = document.getElementById("seek");
 const curT = document.getElementById("currentTime");
 const durT = document.getElementById("duration");
 const art = document.getElementById("albumArt");
 const titleEl = document.getElementById("trackTitle");
 const indexEl = document.getElementById("trackIndex");
+const markersEl = document.getElementById("markers");
 
 let active = audioA;
 let standby = audioB;
@@ -63,26 +66,81 @@ function syncMeta(i) {
 function onLoadedMeta(e) {
   if (e.target !== active) return;
   durT.textContent = fmt(active.duration);
+  buildMarkers(); // refresh timestamp labels for this track
 }
 
 function unlockAudioIfNeeded() {
   if (audioUnlocked) return;
   audioUnlocked = true;
-  // Prime both elements on the first user gesture (Safari requirement)
-  const prevVolA = active.volume;
-  const prevVolB = standby.volume;
-  active.volume = 0;
-  standby.volume = 0;
-  // Play then pause quickly to “unlock” them
+  const prevVolA = active.volume ?? 1;
+  const prevVolB = standby.volume ?? 1;
+  active.volume = 0; standby.volume = 0;
   Promise.resolve()
     .then(() => active.play().catch(() => {}))
     .then(() => active.pause())
     .then(() => standby.play().catch(() => {}))
     .then(() => standby.pause())
-    .finally(() => {
-      active.volume = prevVolA ?? 1;
-      standby.volume = prevVolB ?? 1;
+    .finally(() => { active.volume = prevVolA; standby.volume = prevVolB; });
+}
+
+// Timestamp markers (0%, 25%, 50%, 75%, 100%)
+function buildMarkers() {
+  markersEl.innerHTML = "";
+  const d = active.duration;
+  if (!isFinite(d) || d <= 0) return;
+
+  const points = [0, 0.25, 0.5, 0.75, 1];
+  points.forEach(p => {
+    const s = p * d;
+    const mark = document.createElement("div");
+    mark.className = "mark";
+    mark.style.left = `${p * 100}%`;
+
+    const tick = document.createElement("div");
+    tick.className = "tick";
+
+    const label = document.createElement("div");
+    label.className = "label";
+    label.textContent = fmt(s);
+
+    mark.appendChild(tick);
+    mark.appendChild(label);
+    mark.addEventListener("click", () => {
+      if (active.duration) {
+        active.currentTime = s;
+        setFillFromAudio(active);
+      }
     });
+
+    markersEl.appendChild(mark);
+  });
+}
+
+// Shuffle toggle
+shuffleBtn.addEventListener("click", () => {
+  shuffleOn = !shuffleOn;
+  shuffleBtn.setAttribute("aria-pressed", String(shuffleOn));
+});
+
+// Decide next/prev index
+function nextIndexLinear() { return (index + 1) % tracks.length; }
+function prevIndexLinear() { return (index - 1 + tracks.length) % tracks.length; }
+
+function nextIndexShuffled() {
+  if (tracks.length <= 1) return index;
+  let r;
+  do { r = Math.floor(Math.random() * tracks.length); } while (r === index);
+  return r;
+}
+
+function prevIndexShuffled() {
+  // For simplicity, also random (no strict history)
+  return nextIndexShuffled();
+}
+
+function getNextIndex(direction) {
+  if (!shuffleOn) return direction === "next" ? nextIndexLinear() : prevIndexLinear();
+  return direction === "next" ? nextIndexShuffled() : prevIndexShuffled();
 }
 
 // Initial
@@ -121,12 +179,8 @@ nextBtn.addEventListener("click", () => goTo("next"));
 );
 
 function goTo(direction) {
-  const nextIndex =
-    direction === "next"
-      ? (index + 1) % tracks.length
-      : (index - 1 + tracks.length) % tracks.length;
-
-  crossfadeTo(nextIndex);
+  const targetIdx = getNextIndex(direction);
+  crossfadeTo(targetIdx);
 }
 
 function crossfadeTo(nextIdx) {
@@ -163,6 +217,7 @@ function crossfadeTo(nextIdx) {
         index = nextIdx;
         syncMeta(index);
         durT.textContent = fmt(active.duration);
+        buildMarkers();
 
         if (isPlaying) {
           document.body.classList.add("playing");
@@ -203,7 +258,6 @@ seek.addEventListener("input", () => {
   const pct = seek.value / 1000;
   seek.style.setProperty("--fill", `${pct * 100}%`);
 });
-
 seek.addEventListener("change", () => {
   const pct = seek.value / 1000;
   if (active.duration) active.currentTime = pct * active.duration;
