@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+  <title>Sleek Music Player</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <div class="player-card">
+      <div class="art-wrap">
+        <img id="albumArt" src="images/image1.jpg" alt="Album art" />
+        <div class="vinyl-shadow"></div>
+      </div>
+
+      <div class="meta">
+        <div id="trackTitle" class="title">Song 1</div>
+        <div id="trackIndex" class="subtitle">1 / 3</div>
+      </div>
+
+      <div class="controls">
+        <button id="prevBtn" aria-label="Previous" class="btn icon">
+          &#9664;&#9664;
+        </button>
+
+        <button id="playPauseBtn" aria-label="Play/Pause" class="btn primary">
+          ►
+        </button>
+
+        <button id="nextBtn" aria-label="Next" class="btn icon">
+          &#9654;&#9654;
+        </button>
+      </div>
+
+      <div class="progress">
+        <span id="currentTime" class="time">0:00</span>
+        <input
+          id="seek"
+          type="range"
+          min="0"
+          max="1000"
+          value="0"
+          step="1"
+          aria-label="Seek"
+        />
+        <span id="duration" class="time">0:00</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Two audio elements for seamless crossfade -->
+  <audio id="audioA" preload="auto"></audio>
+  <audio id="audioB" preload="auto"></audio>
+
+  <script src="script.js"></script>
+</body>
+</html>
