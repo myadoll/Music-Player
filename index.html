@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, viewport-fit=cover"
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Sleek Music Player</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -23,32 +20,23 @@
       </div>
 
       <div class="controls">
-        <button id="prevBtn" aria-label="Previous" class="btn icon">
-          &#9664;&#9664;
-        </button>
+        <button id="prevBtn" aria-label="Previous" class="btn icon">&#9664;&#9664;</button>
+        <button id="playPauseBtn" aria-label="Play/Pause" class="btn primary">►</button>
+        <button id="nextBtn" aria-label="Next" class="btn icon">&#9654;&#9654;</button>
+      </div>
 
-        <button id="playPauseBtn" aria-label="Play/Pause" class="btn primary">
-          ►
-        </button>
-
-        <button id="nextBtn" aria-label="Next" class="btn icon">
-          &#9654;&#9654;
-        </button>
+      <div class="options">
+        <button id="shuffleBtn" aria-pressed="false" class="btn toggle">Shuffle ⤮</button>
       </div>
 
       <div class="progress">
         <span id="currentTime" class="time">0:00</span>
-        <input
-          id="seek"
-          type="range"
-          min="0"
-          max="1000"
-          value="0"
-          step="1"
-          aria-label="Seek"
-        />
+        <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek" />
         <span id="duration" class="time">0:00</span>
       </div>
+
+      <!-- Timestamp markers (clickable) -->
+      <div id="markers" class="markers" aria-hidden="false"></div>
     </div>
   </main>
 
