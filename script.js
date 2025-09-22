@@ -1,20 +1,23 @@
-/* Sleek Music Player with Crossfade + Seek
-   Files it expects:
+/* Sleek Music Player with Crossfade + Seek + Safari unlock
+   Expects:
    - images/image1.jpg, image2.jpg, image3.jpg
    - music/song1.mp3, song2.mp3, song3.mp3
-   Safari-friendly: no autoplay; play starts on user gesture.
 */
 
 const tracks = [
-  { title: "Song 1", src: "music/song1.mp3", cover: "images/image1.jpg" },
-  { title: "Song 2", src: "music/song2.mp3", cover: "images/image2.jpg" },
-  { title: "Song 3", src: "music/song3.mp3", cover: "images/image3.jpg" }
+  { title: "Neon Skyline",   src: "music/song1.mp3", cover: "images/image1.jpg" },
+  { title: "Midnight Drive", src: "music/song2.mp3", cover: "images/image2.jpg" },
+  { title: "City Lights",    src: "music/song3.mp3", cover: "images/image3.jpg" }
 ];
 
-const crossfadeMs = 1500; // smooth transition length
-let index = 0;
+const crossfadeMs = 1500;
 
-// Elements
+let index = 0;
+let isPlaying = false;
+let rafId = null;
+let seeking = false;
+let audioUnlocked = false;
+
 const audioA = document.getElementById("audioA");
 const audioB = document.getElementById("audioB");
 const playPauseBtn = document.getElementById("playPauseBtn");
@@ -27,13 +30,9 @@ const art = document.getElementById("albumArt");
 const titleEl = document.getElementById("trackTitle");
 const indexEl = document.getElementById("trackIndex");
 
-let active = audioA;   // currently heard
-let standby = audioB;  // used for next track preload
-let isPlaying = false;
-let rafId = null;
-let seeking = false;
+let active = audioA;
+let standby = audioB;
 
-// Helpers
 function fmt(t) {
   if (!isFinite(t)) return "0:00";
   const m = Math.floor(t / 60);
@@ -45,17 +44,15 @@ function setFillFromAudio(a) {
   const ratio = (a.currentTime || 0) / (a.duration || 1);
   const pct = Math.max(0, Math.min(1, ratio)) * 100;
   seek.style.setProperty("--fill", `${pct}%`);
-  seek.value = Math.round(pct * 10); // since max=1000
+  seek.value = Math.round(pct * 10);
 }
 
-// Load current index into a given audio element
 function loadInto(audio, i) {
   const t = tracks[i];
   audio.src = t.src;
   audio.load();
 }
 
-// UI sync for meta + art
 function syncMeta(i) {
   const t = tracks[i];
   art.src = t.cover;
@@ -63,25 +60,48 @@ function syncMeta(i) {
   indexEl.textContent = `${i + 1} / ${tracks.length}`;
 }
 
-// Initial setup
-loadInto(active, index);
-syncMeta(index);
-
-// Update duration when metadata is ready
 function onLoadedMeta(e) {
   if (e.target !== active) return;
   durT.textContent = fmt(active.duration);
 }
+
+function unlockAudioIfNeeded() {
+  if (audioUnlocked) return;
+  audioUnlocked = true;
+  // Prime both elements on the first user gesture (Safari requirement)
+  const prevVolA = active.volume;
+  const prevVolB = standby.volume;
+  active.volume = 0;
+  standby.volume = 0;
+  // Play then pause quickly to “unlock” them
+  Promise.resolve()
+    .then(() => active.play().catch(() => {}))
+    .then(() => active.pause())
+    .then(() => standby.play().catch(() => {}))
+    .then(() => standby.pause())
+    .finally(() => {
+      active.volume = prevVolA ?? 1;
+      standby.volume = prevVolB ?? 1;
+    });
+}
+
+// Initial
+loadInto(active, index);
+syncMeta(index);
 active.addEventListener("loadedmetadata", onLoadedMeta);
 
-// Play/Pause
 async function togglePlay() {
+  unlockAudioIfNeeded();
   if (!isPlaying) {
-    await active.play();
-    isPlaying = true;
-    document.body.classList.add("playing");
-    playPauseBtn.textContent = "❚❚";
-    tick();
+    try {
+      await active.play();
+      isPlaying = true;
+      document.body.classList.add("playing");
+      playPauseBtn.textContent = "❚❚";
+      tick();
+    } catch (err) {
+      console.warn("Play blocked:", err);
+    }
   } else {
     active.pause();
     isPlaying = false;
@@ -92,10 +112,13 @@ async function togglePlay() {
 }
 
 playPauseBtn.addEventListener("click", togglePlay);
-
-// Previous / Next
 prevBtn.addEventListener("click", () => goTo("prev"));
 nextBtn.addEventListener("click", () => goTo("next"));
+
+// Also treat any click/touch as a gesture to unlock audio
+["click","touchstart"].forEach(evt =>
+  document.addEventListener(evt, unlockAudioIfNeeded, { once: true, passive: true })
+);
 
 function goTo(direction) {
   const nextIndex =
@@ -107,17 +130,17 @@ function goTo(direction) {
 }
 
 function crossfadeTo(nextIdx) {
-  // Prepare standby
+  unlockAudioIfNeeded();
+
   standby.volume = 0;
   loadInto(standby, nextIdx);
 
-  // When standby can play, start crossfade
   standby.oncanplay = async () => {
     standby.oncanplay = null;
     try {
-      await standby.play(); // user already interacted -> allowed
-    } catch {
-      // If Safari blocks for any reason, fallback to hard switch
+      await standby.play(); // should be allowed after unlock
+    } catch (e) {
+      console.warn("Standby play blocked, doing hard switch:", e);
       hardSwitch(nextIdx);
       return;
     }
@@ -126,28 +149,21 @@ function crossfadeTo(nextIdx) {
     const startVolActive = isNaN(active.volume) ? 1 : active.volume;
 
     function step(now) {
-      const elapsed = now - start;
-      const k = Math.min(1, elapsed / crossfadeMs);
+      const k = Math.min(1, (now - start) / crossfadeMs);
       standby.volume = k;
       active.volume = (1 - k) * startVolActive;
 
       if (k < 1) {
         requestAnimationFrame(step);
       } else {
-        // Finish
         active.pause();
         active.volume = 1;
-        // swap roles
-        const temp = active;
-        active = standby;
-        standby = temp;
+        const temp = active; active = standby; standby = temp;
 
-        // Update index + UI
         index = nextIdx;
         syncMeta(index);
         durT.textContent = fmt(active.duration);
 
-        // Keep playing state/UI coherent
         if (isPlaying) {
           document.body.classList.add("playing");
           playPauseBtn.textContent = "❚❚";
@@ -162,29 +178,26 @@ function crossfadeTo(nextIdx) {
   };
 }
 
-// In case crossfade can't start (e.g., blocked play)
 function hardSwitch(nextIdx) {
   active.pause();
   loadInto(active, nextIdx);
   index = nextIdx;
   syncMeta(index);
-  if (isPlaying) active.play();
+  if (isPlaying) {
+    active.play().catch(err => console.warn("Hard switch play blocked:", err));
+  }
 }
 
-// Auto-next at end (with crossfade)
 function maybeAutoNext() {
   if (!active.duration || !isFinite(active.duration)) return;
-  // Start crossfade a bit before the end for seamlessness
   const remaining = active.duration - active.currentTime;
-  const lead = Math.min(crossfadeMs / 1000, 2.0); // small lead window
+  const lead = Math.min(crossfadeMs / 1000, 2.0);
   if (remaining <= lead) {
-    // Prevent multiple triggers
     active.removeEventListener("timeupdate", maybeAutoNext);
     goTo("next");
   }
 }
 
-// Progress + seek
 seek.addEventListener("input", () => {
   seeking = true;
   const pct = seek.value / 1000;
@@ -193,20 +206,16 @@ seek.addEventListener("input", () => {
 
 seek.addEventListener("change", () => {
   const pct = seek.value / 1000;
-  if (active.duration) {
-    active.currentTime = pct * active.duration;
-  }
+  if (active.duration) active.currentTime = pct * active.duration;
   seeking = false;
 });
 
-// Keep progress updated while playing
 function tick() {
   if (!seeking) {
     setFillFromAudio(active);
     curT.textContent = fmt(active.currentTime);
     durT.textContent = fmt(active.duration);
   }
-  // Re-attach auto-next watcher
   active.removeEventListener("timeupdate", maybeAutoNext);
   active.addEventListener("timeupdate", maybeAutoNext);
 
@@ -215,7 +224,6 @@ function tick() {
   }
 }
 
-// Update play/pause UI if user taps system controls
 ["play", "pause", "ended"].forEach(evt => {
   active.addEventListener(evt, () => {
     if (evt === "play") {
@@ -229,16 +237,14 @@ function tick() {
       playPauseBtn.textContent = "►";
       cancelAnimationFrame(rafId);
     } else if (evt === "ended") {
-      // Safety: go next if ended without crossfade trigger
       goTo("next");
     }
   });
 });
 
-// Keyboard shortcuts (space, ←, →)
 window.addEventListener("keydown", (e) => {
   if (["INPUT", "TEXTAREA"].includes(document.activeElement.tagName)) return;
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
   if (e.code === "ArrowRight") { goTo("next"); }
-  if (e.code === "ArrowLeft") { goTo("prev"); }
+  if (e.code === "ArrowLeft")  { goTo("prev"); }
 });
