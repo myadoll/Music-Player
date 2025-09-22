@@ -1,0 +1,181 @@
+:root{
+  --bg: #0b0c0f;
+  --card: #141821;
+  --text: #e8eaf0;
+  --muted: #a6adbb;
+  --accent: #6aa5ff;
+  --accent-2: #9e7bff;
+  --ring: #2a3bff33;
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: radial-gradient(1200px 600px at 10% 0%, #0f1320 0%, #0b0c0f 60%), #0b0c0f;
+  color: var(--text);
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+}
+
+.wrap {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.player-card {
+  width: min(520px, 92vw);
+  background: linear-gradient(180deg, #151a25 0%, #11141b 100%);
+  border: 1px solid #222835;
+  box-shadow: 0 10px 40px #00000088, 0 0 0 10px var(--ring);
+  border-radius: var(--radius);
+  padding: 26px 26px 22px;
+}
+
+.art-wrap {
+  position: relative;
+  width: 72%;
+  aspect-ratio: 1;
+  margin: 10px auto 18px;
+  filter: drop-shadow(0 24px 28px #0009);
+}
+
+.art-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--radius) + 18px);
+  border: 1px solid #2a3140;
+  transform: translateZ(0);
+  animation: spin 10s linear infinite;
+  animation-play-state: paused; /* paused until playing */
+}
+
+.vinyl-shadow {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #00000033, transparent 60%);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.meta {
+  text-align: center;
+  margin: 10px 0 6px 0;
+}
+.title {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  font-size: 1.15rem;
+}
+.subtitle {
+  color: var(--muted);
+  font-size: 0.92rem;
+  margin-top: 4px;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: 12px;
+  margin: 16px 0 8px;
+  align-items: center;
+}
+
+.btn {
+  height: 46px;
+  border-radius: 999px;
+  border: 1px solid #2a3140;
+  background: linear-gradient(180deg, #1c2230 0%, #121723 100%);
+  color: var(--text);
+  font-size: 0.95rem;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  transition: transform .08s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.btn:hover { transform: translateY(-1px); border-color: #3a4356; }
+.btn:active { transform: translateY(0); }
+
+.btn.primary {
+  font-weight: 800;
+  font-size: 1.05rem;
+  background: linear-gradient(180deg, #2b3550 0%, #1a2134 100%);
+  box-shadow: 0 0 0 0 #0000;
+}
+.btn.icon { font-weight: 600; }
+
+.progress {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+  user-select: none;
+}
+
+.time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 10px;
+  background: #0e1220;
+  border: 1px solid #2a3140;
+  border-radius: 999px;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Progress fill using background gradient */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 10px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)) 0/var(--fill,0%) 100% no-repeat, transparent;
+  border-radius: 999px;
+}
+input[type="range"]::-moz-range-track {
+  height: 10px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2)) 0/var(--fill,0%) 100% no-repeat, transparent;
+  border-radius: 999px;
+}
+
+/* Thumb */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #e9ecff;
+  border: 2px solid #bfc9ff;
+  box-shadow: 0 2px 8px #0008;
+  position: relative;
+  margin-top: -4px;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #e9ecff;
+  border: 2px solid #bfc9ff;
+  box-shadow: 0 2px 8px #0008;
+}
+
+/* Playing state toggles the spin */
+body.playing .art-wrap img { animation-play-state: running; }
+
+/* Small screens */
+@media (max-width: 420px) {
+  .player-card { padding: 20px; }
+  .art-wrap { width: 82%; }
+}
